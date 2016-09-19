@@ -1,0 +1,16 @@
+[Unit]
+Description=Spark Master Service
+Wants=network.target network-online.target
+After=network.target network-online.target
+
+[Service]
+Type=forking
+User=spark
+WorkingDirectory={{ spark.working_dir }}
+#ExecStart={{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/sbin/start-master.sh --port {{ spark.master_work_port }} --webui-port {{ spark.master_ui_port }} --work-dir {{ spark.working_dir }} --properties-file {{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/spark-defaults.conf
+ExecStart={{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/sbin/start-master.sh 
+ExecStop={{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/sbin/stop-master.sh
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

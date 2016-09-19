@@ -1,0 +1,17 @@
+- name: start spark-master
+  service: name=spark-master state=started enabled=yes daemon_reload=yes
+
+- name: stop spark-master
+  service: name=spark-master state=stopped enabled=no 
+
+- name: restart spark-master
+  service: name=spark-master state=restarted enabled=yes
+
+- name: start spark-worker
+  service: name=spark-worker state=started enabled=yes daemon_reload=yes
+
+- name: stop spark-worker
+  service: name=spark-worker state=stopped enabled=no
+
+- name: restart spark-worker
+  service: name=spark-worker state=restarted enabled=yes daemon_reload=yes

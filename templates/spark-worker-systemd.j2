@@ -1,0 +1,16 @@
+[Unit]
+Description=Spark Worker Service
+Wants=network.target network-online.target
+After=network.target network-online.target
+
+[Service]
+User=spark
+WorkingDirectory={{ spark.working_dir }}
+#ExecStart={{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/bin/spark-class org.apache.spark.deploy.worker.Worker spark://{{ groups["spark-masters"] | join(":{0},".format(spark.master_work_port)) }}:{{ spark.master_work_port }} --webui-port {{ spark.worker_ui_port }} --work-dir {{ spark.working_dir }}
+ExecStart={{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/sbin/start-slave.sh spark://{{ groups["spark-masters"] | join(":{0},".format(spark.master_work_port)) }}:{{ spark.master_work_port }}
+ExecStop={{ spark.install_dir }}/spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}/sbin/stop-slave.sh
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
+

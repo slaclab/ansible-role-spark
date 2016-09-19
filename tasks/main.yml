@@ -1,0 +1,116 @@
+
+- name: set spark distribution fact
+  set_fact: spark_path=spark-{{ spark.version }}-bin-hadoop{{ spark.hadoop_version }}
+
+- name: check spark downloaded
+  local_action: >
+    command test -f {{ spark.temp_dir }}/{{ spark_path }}.tgz
+  register: spark_downloaded
+  failed_when: spark_downloaded.rc not in [0, 1]
+  changed_when: False
+  run_once: true
+  tags: spark-node
+
+- name: download spark 
+  local_action: get_url url="{{ spark.mirror }}/{{ spark_path }}.tgz" dest="{{ spark.temp_dir }}"
+  when: spark_downloaded.rc == 1
+  run_once: true
+  tags: spark-node
+
+- name: create group
+  group:
+    name: spark
+    state: present
+  become: true
+  tags: spark-node
+
+- name: create user
+  user:
+    name: spark
+    group: spark
+  become: true
+  tags: spark-node
+
+- name: create spark working directory
+  file:
+    path: "{{ spark.working_dir }}"
+    state: directory
+    owner: spark
+    group: spark
+  become: true
+  tags: spark-node
+
+- name: create install directory 
+  file:
+    path: "{{ spark.install_dir }}"
+    state: directory
+    owner: spark
+    group: spark
+  become: true
+  tags: spark-node
+
+- name: unarchive to the install directory
+  unarchive:
+    src: "{{ spark.temp_dir }}/{{ spark_path }}.tgz"
+    dest: "{{ spark.install_dir }}"
+    owner: spark
+    group: spark
+    creates: "{{ spark.install_dir }}/{{ spark_path }}/RELEASE"
+  become: true
+  tags: spark-node
+
+- name: set spark-env.sh
+  template: src="spark-env-sh.j2" dest="{{ spark.install_dir }}/{{ spark_path }}/conf/spark-env.sh"
+  become: true
+  tags: spark-node
+
+- name: set spark-defaults.conf
+  template: src="spark-defaults-conf.j2" dest="{{ spark.install_dir}}/{{ spark_path }}/conf/spark-defaults.conf"
+  become: true
+  tags: spark-node
+
+# this doesn't work... need the non-fqdn output from hostname
+- name: ensure self dns is in /etc/hosts
+  lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].ansible_default_ipv4.address }} {{item}}" state=present
+  when: hostvars[item].ansible_default_ipv4.address is defined
+  become: true
+  with_items:
+    - "{{ ansible_nodename }}"
+
+- name: Check if systemd exists
+  stat: path=/lib/systemd/system/
+  register: systemd_check
+
+- name: copy master systemd start scripts
+  template:
+    src: "spark-master-systemd.j2"
+    dest: /etc/systemd/system/spark-master.service
+    owner: root
+    group: root
+  become: true
+  when: systemd_check.stat.exists == true and ( inventory_hostname in groups['spark-masters'] )
+  notify: 
+    - restart spark-master
+  tags: spark-node
+
+- name: copy worker systemd start scripts
+  template:
+    src: "spark-worker-systemd.j2"
+    dest: /etc/systemd/system/spark-worker.service
+    owner: root
+    group: root
+  become: true
+  when: systemd_check.stat.exists == true and ( inventory_hostname in groups['spark-workers'] )
+  notify: 
+    - restart spark-worker
+  tags: spark-node
+
+- name: start spark masters
+  service: name=spark-master state=started enabled=yes 
+  when: inventory_hostname in groups['spark-masters']
+  become: true
+
+- name: start spark workers
+  service: name=spark-worker state=started enabled=yes 
+  when: inventory_hostname in groups['spark-workers']
+  become: true
